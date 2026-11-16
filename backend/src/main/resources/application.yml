@@ -1,0 +1,61 @@
+# 모든 Profile 공통 설정.
+# 민감정보/환경별 값은 전부 환경변수(${...})로 주입한다. 실제 값은 절대 커밋하지 않는다.
+# 필요한 환경변수 목록: docs/env.example 참고
+
+spring:
+  application:
+    name: beentteum-backend
+  profiles:
+    # SPRING_PROFILES_ACTIVE 미설정 시 local 로 실행
+    default: local
+  config:
+    # 실행 디렉터리(backend/)에 .env 파일이 있으면 환경변수 대신 읽는다(없으면 무시). .env 는 gitignore 대상.
+    import: optional:file:.env[.properties]
+
+  datasource:
+    # PostgreSQL(+PostGIS) 접속 정보. DB 담당자 결과를 받아 환경변수로 설정한다.
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    # Controller/View 렌더링 중 지연 로딩 쿼리를 막아 트랜잭션 경계를 Service 계층으로 한정
+    open-in-view: false
+    hibernate:
+      # 스키마는 DB 담당자가 관리한다. Hibernate가 테이블을 생성/변경하지 않도록 none
+      ddl-auto: none
+    properties:
+      # DB 종류를 명시 → Hibernate 가 PostgreSQLDialect 선택.
+      # (hibernate-spatial 이 있으면 PostgreSQLDialect 가 PostGIS 타입도 지원)
+      jakarta.persistence.database-product-name: PostgreSQL
+      hibernate:
+        # 기동 시 DB 메타데이터 조회를 하지 않음 → DB 가 꺼져 있어도 서버 기동 가능.
+        # DB 연결은 첫 쿼리 시점에 이뤄진다. (DB 연동 확정 후 유지 여부 재검토)
+        boot:
+          allow_jdbc_metadata_access: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+# JWT 설정 (com.beentteum.common.security.JwtProperties 에 바인딩)
+jwt:
+  # Base64 인코딩된 256bit(32byte) 이상 비밀키. 예: openssl rand -base64 32
+  secret: ${JWT_SECRET}
+  # Access Token 유효기간 (Duration 형식: 30m, 1h ...)
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:30m}
+
+# CORS 허용 Origin (com.beentteum.common.security.CorsProperties 에 바인딩)
+cors:
+  # 콤마로 구분된 Frontend Origin 목록. 예: https://a.example.com,https://b.example.com
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
+# 외부 서비스 Key. 해당 기능 구현 시 external 패키지에서 바인딩해서 사용한다.
+# 기능 구현 전에는 비어 있어도 서버 기동에 영향 없음.
+external:
+  kakao:
+    rest-api-key: ${KAKAO_REST_API_KEY:}
+  public-data:
+    service-key: ${PUBLIC_DATA_SERVICE_KEY:}

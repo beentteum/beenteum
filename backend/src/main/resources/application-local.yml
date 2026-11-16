@@ -1,0 +1,19 @@
+# 로컬 개발용 Profile (SPRING_PROFILES_ACTIVE 미설정 시 기본값)
+# 민감하지 않은 로컬 기본값만 둔다. DB 접속정보와 JWT_SECRET 은 로컬에서도 환경변수로 넣어야 한다.
+
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+  jpa:
+    # 개발 중 실행 SQL 확인용
+    show-sql: true
+
+cors:
+  # Vite 개발 서버 기본 주소
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+logging:
+  level:
+    # 인증/인가 문제 디버깅 시 DEBUG 로 변경
+    org.springframework.security: INFO

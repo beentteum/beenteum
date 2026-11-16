@@ -1,0 +1,11 @@
+# 환경변수/Secret 파일은 절대 커밋하지 않는다. (예시는 docs/env.example)
+.env
+.env.*
+!.env.example
+*.local.yml
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

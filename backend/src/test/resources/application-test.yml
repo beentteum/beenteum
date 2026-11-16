@@ -1,0 +1,18 @@
+# 테스트 전용 Profile. 실제 Secret 아님(테스트용 더미 값).
+# allow_jdbc_metadata_access=false 이므로 테스트 중 DB/Redis 에 실제로 접속하지 않는다.
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/test-not-connected
+    username: test
+    password: test
+  data:
+    redis:
+      host: localhost
+
+jwt:
+  # "test-only-secret-key-for-unit-tests-1234" 를 Base64 인코딩한 값
+  secret: dGVzdC1vbmx5LXNlY3JldC1rZXktZm9yLXVuaXQtdGVzdHMtMTIzNA==
+  access-token-expiration: 30m
+
+cors:
+  allowed-origins: http://localhost:5173
