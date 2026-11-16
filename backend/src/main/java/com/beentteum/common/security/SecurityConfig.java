@@ -57,6 +57,9 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
+                // 익명 인증 비활성화: 켜져 있으면 비회원의 principal 이 문자열 "anonymousUser" 가 되어
+                // @AuthenticationPrincipal String userId 에 userId 처럼 주입된다. 끄면 비회원은 null.
+                .anonymous(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(ADMIN_ENDPOINTS).hasRole(Role.ADMIN.name())

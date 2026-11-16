@@ -38,8 +38,17 @@ class SecurityConfigTest {
     JwtProperties jwtProperties;
 
     @Test
-    void 공개_경로는_토큰_없이_접근_가능() throws Exception {
-        mockMvc.perform(get("/api/auth/test")).andExpect(status().isOk());
+    void 공개_경로는_토큰_없이_접근_가능하고_principal은_null() throws Exception {
+        mockMvc.perform(get("/api/auth/test"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("user=null"));
+    }
+
+    @Test
+    void 공개_경로에서도_토큰이_있으면_userId가_주입된다() throws Exception {
+        mockMvc.perform(get("/api/auth/test").header("Authorization", bearer("7", Role.USER)))
+                .andExpect(status().isOk())
+                .andExpect(content().string("user=7"));
     }
 
     @Test
@@ -115,8 +124,8 @@ class SecurityConfigTest {
         @RestController
         static class Endpoints {
             @GetMapping("/api/auth/test")
-            String publicEndpoint() {
-                return "ok";
+            String publicEndpoint(@AuthenticationPrincipal String userId) {
+                return "user=" + userId;
             }
 
             @GetMapping("/api/test/me")
