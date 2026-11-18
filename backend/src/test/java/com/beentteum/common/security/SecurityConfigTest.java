@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Duration;
@@ -53,7 +54,12 @@ class SecurityConfigTest {
 
     @Test
     void 인증_경로는_토큰_없으면_401() throws Exception {
-        mockMvc.perform(get("/api/test/me")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/test/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.instance").value("/api/test/me"));
     }
 
     @Test
@@ -66,7 +72,8 @@ class SecurityConfigTest {
     @Test
     void 위조된_토큰은_401() throws Exception {
         mockMvc.perform(get("/api/test/me").header("Authorization", "Bearer invalid.token.value"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
     }
 
     @Test
@@ -74,20 +81,33 @@ class SecurityConfigTest {
         String expired = new JwtTokenProvider(new JwtProperties(jwtProperties.secret(), Duration.ofSeconds(-1)))
                 .createAccessToken("7", Role.USER);
         mockMvc.perform(get("/api/test/me").header("Authorization", "Bearer " + expired))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("EXPIRED_TOKEN"));
     }
 
     @Test
     void Bearer_접두사가_없으면_인증되지_않는다() throws Exception {
         String token = jwtTokenProvider.createAccessToken("7", Role.USER);
         mockMvc.perform(get("/api/test/me").header("Authorization", token))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 
     @Test
     void USER는_ADMIN_경로_403() throws Exception {
         mockMvc.perform(get("/api/admin/test").header("Authorization", bearer("7", Role.USER)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    void 공개_경로에서는_만료된_토큰도_비회원처럼_통과한다() throws Exception {
+        String expired = new JwtTokenProvider(new JwtProperties(jwtProperties.secret(), Duration.ofSeconds(-1)))
+                .createAccessToken("7", Role.USER);
+        mockMvc.perform(get("/api/auth/test").header("Authorization", "Bearer " + expired))
+                .andExpect(status().isOk())
+                .andExpect(content().string("user=null"));
     }
 
     @Test

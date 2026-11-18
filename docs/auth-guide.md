@@ -82,7 +82,22 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0MiIs...
 - 응답 코드
   - 토큰 없음 / 위조 / 만료 / 형식 오류 → `401 Unauthorized`
   - 인증됐지만 권한 부족 (USER 가 `/api/admin/**`) → `403 Forbidden`
-- 현재 401/403 응답 Body 는 비어 있다. 공통 Error 규격이 확정되면 그 형식으로 바꾼다 (6장).
+- 401/403 응답 Body 는 공통 오류 규격(`application/problem+json`)이다.
+
+| 상황 | HTTP | `code` |
+|------|------|--------|
+| 토큰 없음 / `Bearer` 형식 아님 | 401 | `UNAUTHORIZED` |
+| 토큰 만료 | 401 | `EXPIRED_TOKEN` |
+| 위조 / 형식 오류 토큰 | 401 | `INVALID_TOKEN` |
+| 권한 부족 (USER 가 `/api/admin/**`) | 403 | `ACCESS_DENIED` |
+
+```json
+{ "title": "Unauthorized", "status": 401, "detail": "만료된 토큰입니다.", "instance": "/api/favorites", "code": "EXPIRED_TOKEN" }
+```
+
+- Frontend 는 `EXPIRED_TOKEN` 이면 재로그인, `ACCESS_DENIED` 면 권한 안내를 하면 된다.
+- 공개 경로(`/api/auth/**` 등)에서는 만료·위조 토큰을 보내도 오류 없이 비회원처럼 처리한다.
+- 구현: `SecurityErrorHandler`(응답 작성), `JwtAuthenticationFilter`(실패 원인 전달)
 
 Frontend (Axios 예시):
 
@@ -118,12 +133,12 @@ public List<FavoriteResponse> myFavorites(@AuthenticationPrincipal String userId
 
 ## 6. 남은 작업 (다른 담당자 결과 필요)
 
+401/403 응답 규격 연동은 완료했다.
+
 | 작업 | 필요한 결과 | 연결 위치 |
 |------|-------------|-----------|
 | 로그인 / 회원가입 / 관리자 로그인 API | DB: User 테이블, 권한 컬럼 | `auth` 패키지, `JwtTokenProvider.createAccessToken` |
 | 비밀번호 암호화 | DB: User 테이블 | 로그인 구현 시 `PasswordEncoder` Bean (BCrypt) 추가 |
 | `Role` 값 일치 | DB: 권한 컬럼 값 | `Role.java` TODO |
-| 401/403 응답 Body | API 공통 규격: Error Response | `SecurityConfig` TODO (`AuthenticationEntryPoint`, `AccessDeniedHandler`) |
-| 만료/위조 토큰 에러 코드 구분 | API 공통 규격: Error Code | `JwtAuthenticationFilter` TODO |
 | 비회원 조회 경로 공개 | API 규격: 카페 조회 URL | `SecurityConfig.PUBLIC_ENDPOINTS` |
 | 토큰 저장 위치 / 401 시 재로그인 흐름 | Frontend 합의 | - |

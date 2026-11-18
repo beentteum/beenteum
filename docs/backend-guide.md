@@ -178,11 +178,10 @@ SDD 기준 용도와 구현 위치:
 - [ ] `application.yml` 의 `allow_jdbc_metadata_access: false` 유지 여부 재검토
   (현재는 DB 없이도 서버가 뜨도록 설정. DB 가 준비되면 기동 시 연결을 확인하도록 바꿀 수 있음)
 
-### 공통 Response / Error 규격 담당 결과 이후
+### 공통 Response / Error 규격
 
-- [ ] `common` 하위에 공통 응답 객체 / `@RestControllerAdvice` 추가 (현재 없음, 임의 규격 만들지 않음)
-- [ ] `SecurityConfig` 의 401/403 처리를 규격 Body 를 쓰는 `AuthenticationEntryPoint` / `AccessDeniedHandler` 로 교체 (`SecurityConfig` TODO)
-- [ ] 만료 토큰과 위조 토큰을 구분한 에러 코드가 필요하면 `JwtAuthenticationFilter` 에서 원인을 request attribute 로 전달 (`JwtAuthenticationFilter` TODO)
+- [x] 공통 응답/예외(`ApiResponse`, `ErrorCode`, `GlobalExceptionHandler`)는 `dev` 에 반영됨. 사용법은 `docs/COMMON_API_GUIDE.md`
+- [x] Security 401/403 응답을 같은 규격으로 연동함 (`SecurityErrorHandler`, [auth-guide.md](auth-guide.md) 4장)
 
 ### Frontend 이후
 

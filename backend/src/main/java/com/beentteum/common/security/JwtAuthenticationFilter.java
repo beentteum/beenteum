@@ -1,5 +1,7 @@
 package com.beentteum.common.security;
 
+import com.beentteum.common.exception.ErrorCode;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -21,6 +23,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    /** 토큰 검증 실패 원인(ErrorCode)을 SecurityErrorHandler 로 전달하는 request attribute 이름 */
+    static final String ERROR_CODE_ATTRIBUTE = "beentteum.jwt.errorCode";
+
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwtTokenProvider;
@@ -37,8 +42,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 SecurityContextHolder.getContext().setAuthentication(jwtTokenProvider.getAuthentication(token));
             } catch (JwtException e) {
-                // TODO(common-error): 공통 Error 규격 확정 시 만료(ExpiredJwtException)/위조 구분 응답이 필요하면
-                //  request attribute 로 원인을 넘기고 AuthenticationEntryPoint 에서 처리한다.
+                // 원인을 request attribute 로 넘기면 SecurityErrorHandler 가 401 응답 code 를 정한다.
+                // 공개 경로에서는 응답이 나가지 않고 비회원처럼 통과한다.
+                request.setAttribute(ERROR_CODE_ATTRIBUTE,
+                        e instanceof ExpiredJwtException ? ErrorCode.EXPIRED_TOKEN : ErrorCode.INVALID_TOKEN);
                 SecurityContextHolder.clearContext();
             }
         }
