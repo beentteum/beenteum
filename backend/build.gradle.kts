@@ -35,6 +35,10 @@ dependencies {
 	implementation("org.hibernate.orm:hibernate-spatial")
 	runtimeOnly("org.postgresql:postgresql")
 
+	// DB Migration: Flyway
+	implementation("org.springframework.boot:spring-boot-starter-flyway")
+	runtimeOnly("org.flywaydb:flyway-database-postgresql")
+
 	// Cache: Redis
 	implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
