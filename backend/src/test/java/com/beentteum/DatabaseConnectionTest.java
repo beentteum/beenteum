@@ -2,6 +2,7 @@
 package com.beentteum;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -13,6 +14,7 @@ import java.sql.Statement;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
+@Tag("db")
 class DatabaseConnectionTest {
 
     @Autowired
