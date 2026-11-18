@@ -1,23 +1,25 @@
 
 package com.beentteum.common.exception;
 
-import java.util.Arrays;
 import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.jspecify.annotations.Nullable;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log =
             LoggerFactory.getLogger(GlobalExceptionHandler.class);
@@ -42,9 +44,12 @@ public class GlobalExceptionHandler {
     }
 
     // 입력값 검증 실패: 400
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ProblemDetail> handleValidationException(
-            MethodArgumentNotValidException exception) {
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException exception,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
 
         ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
 
@@ -65,13 +70,17 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(errorCode.getStatus())
+                .headers(headers)
                 .body(problem);
     }
 
     // 잘못된 JSON 요청: 400
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ProblemDetail> handleInvalidJson(
-            HttpMessageNotReadableException exception) {
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException exception,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
 
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
@@ -82,33 +91,27 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
+                .headers(headers)
                 .body(problem);
     }
 
-    // 지원하지 않는 HTTP 메서드: 405
-    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ProblemDetail> handleMethodNotAllowed(
-            HttpRequestMethodNotSupportedException exception) {
+    // Spring MVC 기본 오류는 원래 HTTP 상태 코드를 유지한다.
+    // 예: 404, 405, 415, 필수 파라미터 누락(400)
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(
+            Exception exception,
+            @Nullable Object body,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
 
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.METHOD_NOT_ALLOWED,
-                "지원하지 않는 HTTP 메서드입니다."
+        if (status.is5xxServerError()) {
+            log.error("Spring MVC 요청 처리 중 서버 오류가 발생했습니다.", exception);
+        }
+
+        return super.handleExceptionInternal(
+                exception, body, headers, status, request
         );
-
-        problem.setProperty("code", "METHOD_NOT_ALLOWED");
-
-        HttpMethod[] supportedMethods = Arrays.stream(
-                        exception.getSupportedMethods() == null
-                                ? new String[0]
-                                : exception.getSupportedMethods()
-                )
-                .map(HttpMethod::valueOf)
-                .toArray(HttpMethod[]::new);
-
-        return ResponseEntity
-                .status(HttpStatus.METHOD_NOT_ALLOWED)
-                .allow(supportedMethods)
-                .body(problem);
     }
 
     // 예상하지 못한 서버 오류: 500

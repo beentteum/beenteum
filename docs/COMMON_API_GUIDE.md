@@ -152,10 +152,10 @@ public ResponseEntity<ApiResponse<String>> create(
   "status": 400,
   "detail": "잘못된 입력값입니다.",
   "code": "INVALID_INPUT_VALUE",
-  "errors": [
+   "errors": [
     {
       "field": "name",
-      "message": "이름은 필수입니다."
+      "reason": "이름은 필수입니다."
     }
   ]
 }

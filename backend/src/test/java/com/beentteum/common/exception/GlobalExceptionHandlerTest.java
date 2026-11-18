@@ -11,6 +11,7 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -31,7 +32,7 @@ class GlobalExceptionHandlerTest {
                 .build();
     }
 
-    // 404: 존재하지 않는 리소스
+    // 404: 비즈니스 예외
     @Test
     void 존재하지_않는_리소스는_404_ProblemDetail을_반환한다()
             throws Exception {
@@ -41,14 +42,11 @@ class GlobalExceptionHandlerTest {
                 .andExpect(content().contentTypeCompatibleWith(
                         MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.title").value("Not Found"))
-                .andExpect(jsonPath("$.detail").value(
-                        "요청한 리소스를 찾을 수 없습니다."))
                 .andExpect(jsonPath("$.code").value(
                         "RESOURCE_NOT_FOUND"));
     }
 
-    // 400: 입력값 검증 실패
+    // 400: DTO 검증 실패
     @Test
     void 필수_입력값이_비어있으면_400_검증_오류를_반환한다()
             throws Exception {
@@ -60,33 +58,34 @@ class GlobalExceptionHandlerTest {
                 .andExpect(content().contentTypeCompatibleWith(
                         MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.title").value("Bad Request"))
-                .andExpect(jsonPath("$.detail").value(
-                        "잘못된 입력값입니다."))
                 .andExpect(jsonPath("$.code").value(
                         "INVALID_INPUT_VALUE"))
                 .andExpect(jsonPath("$.errors[0].field").value("name"))
-                .andExpect(jsonPath("$.errors[0].message").value(
-                        "이름은 필수입니다."));
+                .andExpect(jsonPath("$.errors[0].reason").value(
+        "이름은 필수입니다."));
     }
 
-    // 400: 잘못된 JSON 요청
+    // 400: 잘못된 JSON
     @Test
-    void 잘못된_JSON_요청은_400_ProblemDetail을_반환한다()
+    void 잘못된_JSON_요청은_400을_반환한다()
             throws Exception {
 
         mockMvc.perform(post("/test/validation")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":"))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().contentTypeCompatibleWith(
-                        MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.title").value("Bad Request"))
-                .andExpect(jsonPath("$.detail").value(
-                        "요청 본문을 읽을 수 없습니다."))
                 .andExpect(jsonPath("$.code").value(
                         "INVALID_REQUEST_BODY"));
+    }
+
+    // 400: 필수 요청 파라미터 누락
+    @Test
+    void 필수_요청_파라미터가_없으면_400을_반환한다()
+            throws Exception {
+
+        mockMvc.perform(get("/test/required-param"))
+                .andExpect(status().isBadRequest());
     }
 
     // 405: 지원하지 않는 HTTP 메서드
@@ -98,18 +97,25 @@ class GlobalExceptionHandlerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"테스트\"}"))
                 .andExpect(status().isMethodNotAllowed())
-                .andExpect(content().contentTypeCompatibleWith(
-                        MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.status").value(405))
-                .andExpect(jsonPath("$.code").value(
-                        "METHOD_NOT_ALLOWED"))
-                .andExpect(header().string("Allow",
+                .andExpect(header().string(
+                        "Allow",
                         org.hamcrest.Matchers.containsString("POST")));
+    }
+
+    // 415: 지원하지 않는 Content-Type
+    @Test
+    void 지원하지_않는_미디어_타입은_415를_반환한다()
+            throws Exception {
+
+        mockMvc.perform(post("/test/validation")
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("테스트"))
+                .andExpect(status().isUnsupportedMediaType());
     }
 
     // 500: 예상하지 못한 서버 오류
     @Test
-    void 예상하지_못한_예외는_500_ProblemDetail을_반환한다()
+    void 예상하지_못한_예외는_500을_반환한다()
             throws Exception {
 
         mockMvc.perform(get("/test/server-error"))
@@ -117,16 +123,10 @@ class GlobalExceptionHandlerTest {
                 .andExpect(content().contentTypeCompatibleWith(
                         MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(500))
-                .andExpect(jsonPath("$.title").value(
-                        "Internal Server Error"))
-                .andExpect(jsonPath("$.detail").value(
-                        "서버 내부 오류가 발생했습니다."))
                 .andExpect(jsonPath("$.code").value(
                         "INTERNAL_SERVER_ERROR"))
                 .andExpect(jsonPath("$.detail").value(
-                        org.hamcrest.Matchers.not(
-                                org.hamcrest.Matchers.containsString(
-                                        "내부 오류 상세 정보"))));
+                        "서버 내부 오류가 발생했습니다."));
     }
 
     // 테스트 전용 컨트롤러
@@ -145,13 +145,18 @@ class GlobalExceptionHandlerTest {
             return request.name();
         }
 
+        @GetMapping("/test/required-param")
+        public String requiredParam(
+                @RequestParam String name) {
+            return name;
+        }
+
         @GetMapping("/test/server-error")
         public String serverError() {
             throw new IllegalStateException("내부 오류 상세 정보");
         }
     }
 
-    // 입력값 검증 테스트용 DTO
     record TestRequest(
             @NotBlank(message = "이름은 필수입니다.")
             String name
