@@ -3,14 +3,12 @@ package com.beentteum.common.security;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -44,8 +42,8 @@ public class SecurityConfig {
     private static final String ADMIN_ENDPOINTS = "/api/admin/**";
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtTokenProvider jwtTokenProvider)
-            throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtTokenProvider jwtTokenProvider,
+                                                   SecurityErrorHandler securityErrorHandler) throws Exception {
         http
                 // JWT 를 Authorization 헤더로 전달(쿠키 미사용)하므로 CSRF 불필요
                 .csrf(AbstractHttpConfigurer::disable)
@@ -57,14 +55,17 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
+                // 익명 인증 비활성화: 켜져 있으면 비회원의 principal 이 문자열 "anonymousUser" 가 되어
+                // @AuthenticationPrincipal String userId 에 userId 처럼 주입된다. 끄면 비회원은 null.
+                .anonymous(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(ADMIN_ENDPOINTS).hasRole(Role.ADMIN.name())
                         .anyRequest().authenticated())
-                // 미인증 401, 권한 부족 403(기본 AccessDeniedHandler).
-                // TODO(common-error): 공통 Error 규격 확정 시 응답 Body 를 해당 규격으로 작성하는
-                //  AuthenticationEntryPoint / AccessDeniedHandler 로 교체한다.
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                // 미인증 401 / 권한 부족 403 을 공통 오류 규격(ProblemDetail + code)으로 응답
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(securityErrorHandler)
+                        .accessDeniedHandler(securityErrorHandler))
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

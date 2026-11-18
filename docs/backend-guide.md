@@ -59,6 +59,7 @@ beenteum/
 │       └── test/                    테스트 (application-test.yml 포함)
 ├── docs/
 │   ├── backend-guide.md             이 문서
+│   ├── auth-guide.md                인증/권한 (JWT, Role)
 │   └── env.example                  환경변수 예시
 └── (frontend/)                      별도 Vite + React 프로젝트 (이번 셋업 범위 아님)
 ```
@@ -128,80 +129,27 @@ Profile 지정: 환경변수 `SPRING_PROFILES_ACTIVE=prod` (미지정 시 `local
 - `JWT_SECRET` 이 32byte 미만이면 서버 기동이 실패한다 (`WeakKeyException`).
 - 필수 환경변수를 추가하면 `application.yml`, `RequiredEnvironmentValidator`, `docs/env.example`, 이 문서를 함께 수정한다.
 
-## 5. JWT 인증 구조
+## 5. 인증 / 권한 (JWT, USER / ADMIN)
 
-```text
-요청 ─▶ JwtAuthenticationFilter ─▶ AuthorizationFilter(URL 권한 검사) ─▶ Controller
-          │ Authorization: Bearer {token} 추출
-          │ JwtTokenProvider.getAuthentication(token)
-          │   - 서명 검증, 만료(exp) 검증
-          │   - 성공: SecurityContext 에 인증 저장 (principal = userId, 권한 = ROLE_USER/ROLE_ADMIN)
-          │   - 실패: 인증 없이 통과 → 보호된 경로면 401
-```
+JWT 구조, Authorization Header 사용법, 경로별 권한, 비회원 접근 규칙은 [auth-guide.md](auth-guide.md) 에 정리했다.
 
-| 클래스 | 역할 |
-|--------|------|
-| `common.security.JwtTokenProvider` | 토큰 생성(`createAccessToken`), 검증 + Authentication 변환(`getAuthentication`) |
-| `common.security.JwtAuthenticationFilter` | Bearer 토큰 추출 및 SecurityContext 설정 |
-| `common.security.SecurityConfig` | 공개/인증/ADMIN 경로 규칙, Stateless, CORS, 필터 등록 |
-| `common.security.JwtProperties` | `jwt.secret`, `jwt.access-token-expiration` 바인딩 |
-| `common.security.Role` | `USER`, `ADMIN` |
+## 6. Redis 사용 계획
 
-토큰 Payload:
+Redis 연결 설정(`spring.data.redis.*`)과 의존성만 준비돼 있다. 실제 Key 설계는 각 기능 담당자가 구현하면서 정한다.
+SDD 기준 용도와 구현 위치:
 
-```json
-{ "sub": "<userId>", "role": "USER", "iat": 1700000000, "exp": 1700001800 }
-```
+| 용도 | 정책 | 구현 위치 |
+|------|------|-----------|
+| 현재 혼잡도 Cache | 최근 60분 VALID 제보 기반 계산 결과 | `congestion` |
+| 최근 제보 | 카페별 최근 제보 조회 | `report` |
+| 60분 중복 제보 방지 | 동일 회원 + 동일 카페 60분 이내 재제보 불가 (TTL 60분) | `report` |
+| visitToken / FieldAuthSession | QR + GPS 100m 인증 성공 시 발급, TTL 15분, 성공 제보 1회 후 재사용 불가 | `fieldauth` |
 
-- 서명: HMAC-SHA (키 길이에 따라 HS256~HS512)
-- 검증 시 DB 를 조회하지 않는다(Stateless). 탈퇴/정지 사용자 즉시 차단이 필요하면 추후 검토.
-- Refresh Token 은 아직 없다. 필요 시 auth 담당이 추가.
+- Redis 데이터는 만료/유실될 수 있다. 영구 보관이 필요한 데이터(제보 원본, 변경 이력)는 DB 에 저장한다.
+- 정확한 GPS 좌표는 Redis/DB 어디에도 영구 저장하지 않는다.
+- 사용은 Spring Boot 가 자동 등록하는 `StringRedisTemplate` 을 주입받는 것으로 시작한다.
 
-### Controller 에서 로그인 사용자 꺼내기
-
-```java
-@GetMapping("/api/favorites")
-public List<FavoriteResponse> myFavorites(@AuthenticationPrincipal String userId) {
-    return favoriteService.findByUser(userId);
-}
-```
-
-> `userId` 타입은 User 테이블 확정 전이라 `String`. PK 타입이 정해지면 변환해서 사용한다.
-
-## 6. Authorization Header 사용법
-
-```http
-GET /api/favorites HTTP/1.1
-Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0MiIs...
-```
-
-- 형식: `Bearer` + 공백 1칸 + 토큰
-- 응답 코드
-  - 토큰 없음 / 위조 / 만료 / 형식 오류 → `401 Unauthorized`
-  - 인증됐지만 권한 부족(USER 가 `/api/admin/**`) → `403 Forbidden`
-- 현재 401/403 응답 Body 는 비어 있다 (공통 Error 규격 확정 후 연결, 9장).
-
-Frontend (fetch 예시):
-
-```js
-fetch(`${API_BASE_URL}/api/favorites`, {
-  headers: { Authorization: `Bearer ${accessToken}` },
-});
-```
-
-## 7. USER / ADMIN Role 구조
-
-| 경로 | 접근 |
-|------|------|
-| `/api/auth/**`, `/error` | 누구나 (토큰 불필요) |
-| `/api/admin/**` | `ADMIN` 만 |
-| 그 외 모든 경로 | 로그인 사용자 (`USER`, `ADMIN`) |
-
-- 경로 규칙은 `SecurityConfig` 의 `PUBLIC_ENDPOINTS`, `ADMIN_ENDPOINTS` 에서 관리한다.
-- 비로그인 조회 API(예: 지도에서 카페 목록 보기)가 기획상 필요하면 `PUBLIC_ENDPOINTS` 에 추가한다.
-- 메서드 단위 권한이 필요하면 `@EnableMethodSecurity` 를 추가하고 `@PreAuthorize("hasRole('ADMIN')")` 를 사용한다 (현재 미사용).
-
-## 8. 신규 Backend 기능 추가 시 권장 위치
+## 7. 신규 Backend 기능 추가 시 권장 위치
 
 | 만들 것 | 위치 | URL |
 |---------|------|-----|
@@ -217,7 +165,7 @@ fetch(`${API_BASE_URL}/api/favorites`, {
   `@ConfigurationPropertiesScan` 이 켜져 있어 record 를 만들면 자동 등록된다.
 - 외부 API Key 는 이미 `external.kakao.rest-api-key`, `external.public-data.service-key` 로 준비돼 있다.
 
-## 9. 다른 담당자 결과가 나온 뒤 연결할 부분
+## 8. 다른 담당자 결과가 나온 뒤 연결할 부분
 
 ### DB / ERD 담당 결과 이후
 
@@ -230,11 +178,10 @@ fetch(`${API_BASE_URL}/api/favorites`, {
 - [ ] `application.yml` 의 `allow_jdbc_metadata_access: false` 유지 여부 재검토
   (현재는 DB 없이도 서버가 뜨도록 설정. DB 가 준비되면 기동 시 연결을 확인하도록 바꿀 수 있음)
 
-### 공통 Response / Error 규격 담당 결과 이후
+### 공통 Response / Error 규격
 
-- [ ] `common` 하위에 공통 응답 객체 / `@RestControllerAdvice` 추가 (현재 없음, 임의 규격 만들지 않음)
-- [ ] `SecurityConfig` 의 401/403 처리를 규격 Body 를 쓰는 `AuthenticationEntryPoint` / `AccessDeniedHandler` 로 교체 (`SecurityConfig` TODO)
-- [ ] 만료 토큰과 위조 토큰을 구분한 에러 코드가 필요하면 `JwtAuthenticationFilter` 에서 원인을 request attribute 로 전달 (`JwtAuthenticationFilter` TODO)
+- [x] 공통 응답/예외(`ApiResponse`, `ErrorCode`, `GlobalExceptionHandler`)는 `dev` 에 반영됨. 사용법은 `docs/COMMON_API_GUIDE.md`
+- [x] Security 401/403 응답을 같은 규격으로 연동함 (`SecurityErrorHandler`, [auth-guide.md](auth-guide.md) 4장)
 
 ### Frontend 이후
 
