@@ -113,7 +113,7 @@ throw new BusinessException(
 | HTTP 상태 | 오류 코드 | 설명 |
 |---|---|---|
 | 400 | INVALID_REQUEST_BODY | 요청 본문 파싱 실패 |
-| 405 | METHOD_NOT_ALLOWED | 지원하지 않는 HTTP 메서드 |
+| 405 | Spring 기본 오류 응답 | 지원하지 않는 HTTP 메서드 |
 
 새로운 오류 유형이 필요한 경우 팀원들과 협의하여 공통 오류 코드를 확장합니다.
 
@@ -171,8 +171,8 @@ public ResponseEntity<ApiResponse<String>> create(
 | 비즈니스 규칙 위반 | `BusinessException` 발생 |
 | DTO 검증 실패 | 400 + 필드별 오류 |
 | 잘못된 JSON | 400 + INVALID_REQUEST_BODY |
-| 지원하지 않는 HTTP 메서드 | 405 + METHOD_NOT_ALLOWED |
-| 예상하지 못한 서버 예외 | 500 + INTERNAL_SERVER_ERROR |
+| 지원하지 않는 HTTP 메서드 | Spring 기본 오류 처리에 따라 405 반환 |
+| 예상하지 못한 서버 예외 | Spring Boot 기본 오류 처리에 따라 500 반환 |
 
 예상하지 못한 서버 오류의 상세 정보는 클라이언트에 노출하지 않고 서버 로그에 기록합니다.
 

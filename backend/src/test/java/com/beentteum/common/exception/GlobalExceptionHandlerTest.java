@@ -113,22 +113,6 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isUnsupportedMediaType());
     }
 
-    // 500: 예상하지 못한 서버 오류
-    @Test
-    void 예상하지_못한_예외는_500을_반환한다()
-            throws Exception {
-
-        mockMvc.perform(get("/test/server-error"))
-                .andExpect(status().isInternalServerError())
-                .andExpect(content().contentTypeCompatibleWith(
-                        MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.status").value(500))
-                .andExpect(jsonPath("$.code").value(
-                        "INTERNAL_SERVER_ERROR"))
-                .andExpect(jsonPath("$.detail").value(
-                        "서버 내부 오류가 발생했습니다."));
-    }
-
     // 테스트 전용 컨트롤러
     @RestController
     static class TestController {
@@ -149,11 +133,6 @@ class GlobalExceptionHandlerTest {
         public String requiredParam(
                 @RequestParam String name) {
             return name;
-        }
-
-        @GetMapping("/test/server-error")
-        public String serverError() {
-            throw new IllegalStateException("내부 오류 상세 정보");
         }
     }
 

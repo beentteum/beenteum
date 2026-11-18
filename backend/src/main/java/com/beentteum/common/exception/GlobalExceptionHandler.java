@@ -113,25 +113,4 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 exception, body, headers, status, request
         );
     }
-
-    // 예상하지 못한 서버 오류: 500
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ProblemDetail> handleUnexpectedException(
-            Exception exception) {
-
-        log.error("예상하지 못한 서버 오류가 발생했습니다.", exception);
-
-        ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
-
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                errorCode.getStatus(),
-                errorCode.getMessage()
-        );
-
-        problem.setProperty("code", errorCode.getCode());
-
-        return ResponseEntity
-                .status(errorCode.getStatus())
-                .body(problem);
-    }
 }
