@@ -26,14 +26,17 @@ main
 
 ## 2. 브랜치 이름
 
-`종류/내용` 형식, 영문 소문자와 하이픈만 사용한다.
+`종류/내용/내이름` 형식, 영문 소문자와 하이픈만 사용한다. **맨 뒤에 본인 이름(영문)을 붙인다.** 누구 브랜치인지 바로 알 수 있고, 같은 기능을 여러 명이 작업해도 이름이 겹치지 않는다.
 
 | 종류 | 용도 | 예시 |
 |------|------|------|
-| `feature/` | 새 기능 | `feature/cafe-detail`, `feature/report-admin` |
-| `fix/` | 버그 수정 | `fix/login-token-expire` |
-| `docs/` | 문서만 수정 | `docs/auth-guide` |
-| `chore/` | 설정·빌드·의존성 | `chore/gradle-update` |
+| `feature/` | 새 기능 | `feature/cafe-detail/yeonseung`, `feature/report-admin/yunseo` |
+| `fix/` | 버그 수정 | `fix/login-token-expire/yunseo` |
+| `docs/` | 문서만 수정 | `docs/auth-guide/yunseo` |
+| `chore/` | 설정·빌드·의존성 | `chore/gradle-update/yunseo` |
+
+- 이름은 본인 GitHub ID 또는 영문 이름 중 하나로 정해 계속 같은 것을 쓴다.
+- `feature/cafe-detail` 브랜치가 이미 있으면 `feature/cafe-detail/이름` 은 만들 수 없다 (Git 제한). 내용 부분을 다르게 쓴다.
 
 - 한 브랜치에는 **한 가지 작업**만 담는다. (여러 기능을 섞지 않는다)
 - 작업이 끝나 병합된 브랜치는 삭제한다.
@@ -43,12 +46,12 @@ main
 ```bash
 git switch dev
 git pull --ff-only origin dev           # 최신 dev 받기
-git switch -c feature/cafe-detail       # 내 브랜치 만들기
+git switch -c feature/cafe-detail/yunseo   # 내 브랜치 만들기 (맨 뒤에 내 이름)
 # ... 작업 ...
 git add <변경한 파일>                    # git add . 대신 파일/폴더를 지정
 git status --short                      # 올라갈 파일 확인
 git commit -m "feat: 카페 상세 API 구현"
-git push -u origin feature/cafe-detail
+git push -u origin feature/cafe-detail/yunseo
 ```
 
 그다음 GitHub 에서 **Compare & pull request** → base `dev` ← compare 내 브랜치.
@@ -136,7 +139,7 @@ docs: Backend 인증 가이드 추가
 
 | 상황 | 방법 |
 |------|------|
-| 엉뚱한 브랜치에서 작업을 시작했다 | 커밋 전이면 `git switch -c feature/올바른이름` (변경 내용이 그대로 따라옴) |
+| 엉뚱한 브랜치에서 작업을 시작했다 | 커밋 전이면 `git switch -c feature/올바른내용/내이름` (변경 내용이 그대로 따라옴) |
 | `main`/`dev` 에 push 했더니 거부된다 | 정상이다. feature 브랜치를 만들어 PR 로 올린다 |
 | PR base 가 `main` 으로 되어 있다 | PR 화면의 Edit 에서 `dev` 로 변경 |
 | 방금 커밋 메시지를 고치고 싶다 | push 전이면 `git commit --amend`. 이미 push 했다면 그대로 두고 다음 커밋에서 반영 |

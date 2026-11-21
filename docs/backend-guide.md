@@ -12,7 +12,7 @@ Backend 공통 개발 기반(Spring Boot + Security + JWT + 환경설정) 사용
 | JDK | 21 (Gradle toolchain 이 21 을 요구) |
 | Gradle | 별도 설치 불필요. `backend/gradlew` (Wrapper, Gradle 9.9.1) 사용 |
 | Spring Boot | 4.1.2 |
-| PostgreSQL + PostGIS | DB 담당자 결과 확정 후 사용. **DB 가 없어도 서버 기동은 가능** (첫 쿼리 시 연결) |
+| PostgreSQL + PostGIS | **서버 실행(`bootRun`)에 필요.** 기동 시 Flyway 가 DB 에 접속해 마이그레이션을 적용한다. 로컬 DB 세팅은 DB 가이드 참고. 빌드·테스트(`./gradlew build`)는 DB 없이 가능 |
 | Redis | 캐시 기능 구현 시 필요. 없어도 서버 기동은 가능 (Redis 사용 시점에 연결) |
 | IDE | IntelliJ 권장. `backend/` 폴더를 Gradle 프로젝트로 열기 |
 
@@ -37,8 +37,9 @@ java.lang.IllegalStateException: 필수 환경변수가 설정되지 않아 서�
   - jwt.secret <- Could not resolve placeholder 'JWT_SECRET' in value "${JWT_SECRET}"
 ```
 
-> DB 접속정보가 아직 확정되지 않았다면, 로컬에서는 임시 값(예: `DB_URL=jdbc:postgresql://localhost:5432/beentteum`)을 넣어도 서버는 뜬다.
-> DB 를 사용하는 API 를 호출하는 순간 연결 오류가 난다.
+> 서버를 실행하려면 로컬 PostgreSQL 이 켜져 있고 `DB_*`, `FLYWAY_*` 값이 실제 계정이어야 한다. 값이 틀리면 기동 중 `Unable to obtain connection from database` 오류로 멈춘다.
+> `FLYWAY_USER` / `FLYWAY_PASSWORD` 를 빠뜨리면 오류에 `"${FLYWAY_USER}"` 가 그대로 찍힌다. `.env` 에 넣었는지 확인한다.
+> DB 없이 확인할 수 있는 것은 빌드와 테스트(`./gradlew build`)뿐이다.
 
 ## 3. 폴더 / 패키지 구조
 
@@ -115,6 +116,8 @@ Profile 지정: 환경변수 `SPRING_PROFILES_ACTIVE=prod` (미지정 시 `local
 | `DB_URL` | 필수 | 필수 | `jdbc:postgresql://host:5432/db` |
 | `DB_USERNAME` | 필수 | 필수 | |
 | `DB_PASSWORD` | 필수 | 필수 | |
+| `FLYWAY_USER` | 필수 | 설정 없음 | 스키마 변경 권한 계정. 현재 `application-local.yml` 에만 설정되어 prod 는 `DB_*` 계정으로 마이그레이션 |
+| `FLYWAY_PASSWORD` | 필수 | 설정 없음 | 위와 같음 |
 | `REDIS_HOST` | 기본 localhost | 필수 | |
 | `REDIS_PORT` | 기본 6379 | 기본 6379 | |
 | `REDIS_PASSWORD` | 선택 | 선택 | |
@@ -174,9 +177,10 @@ SDD 기준 용도와 구현 위치:
 - [ ] `Role` enum 값과 사용자 권한 컬럼 값 일치시키기 (`common/security/Role.java` TODO)
 - [ ] 로그인 구현: `auth.service` 에서 사용자 조회/비밀번호 검증 후 `JwtTokenProvider.createAccessToken(userId, role)` 호출 (`JwtTokenProvider` TODO)
   - 비밀번호 저장 시 `PasswordEncoder` Bean(BCrypt 등)을 이때 추가
-- [ ] 스키마 관리 방식 결정 (현재 `ddl-auto: none`. Flyway 등 도입 여부)
+- [x] 스키마 관리: Flyway 도입 (`db/migration/V1__init_schema.sql`, `ddl-auto: none` 유지). 변경은 `V2__...sql` 로 추가 ([git-convention.md](git-convention.md) 8장)
 - [ ] `application.yml` 의 `allow_jdbc_metadata_access: false` 유지 여부 재검토
-  (현재는 DB 없이도 서버가 뜨도록 설정. DB 가 준비되면 기동 시 연결을 확인하도록 바꿀 수 있음)
+  (Flyway 가 기동 시 DB 에 접속하므로 서버는 이미 DB 없이 뜨지 않는다. 이 설정은 Hibernate 의 추가 메타데이터 조회만 막는다)
+- [ ] `FLYWAY_USER` 미설정 시 오류가 불친절한 점 개선 (`application-local.yml` 에 기본값 `${FLYWAY_USER:${DB_USERNAME}}` 또는 필수 환경변수 검사에 추가)
 
 ### 공통 Response / Error 규격
 
