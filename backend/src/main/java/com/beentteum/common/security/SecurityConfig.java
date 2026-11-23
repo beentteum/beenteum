@@ -3,6 +3,7 @@ package com.beentteum.common.security;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -60,6 +61,7 @@ public class SecurityConfig {
                 .anonymous(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/cafes").permitAll()
                         .requestMatchers(ADMIN_ENDPOINTS).hasRole(Role.ADMIN.name())
                         .anyRequest().authenticated())
                 // 미인증 401 / 권한 부족 403 을 공통 오류 규격(ProblemDetail + code)으로 응답
