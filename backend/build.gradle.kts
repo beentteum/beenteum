@@ -50,8 +50,23 @@ dependencies {
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-tasks.withType<Test> {
+val cafeSearchPostgisTask = "cafeSearchPostgisTest"
+
+tasks.withType<Test>().matching { it.name != cafeSearchPostgisTask }.configureEach {
     useJUnitPlatform {
         excludeTags("db")
     }
+}
+tasks.register<Test>(cafeSearchPostgisTask) {
+    description = "Runs cafe search integration tests against a dedicated PostgreSQL/PostGIS database."
+    group = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    filter {
+        includeTestsMatching("com.beentteum.cafe.repository.CafeSearchPostgisTest")
+    }
+    useJUnitPlatform {
+        includeTags("db")
+    }
+    outputs.upToDateWhen { false }
 }
